@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Plano de Fases</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: panel de instrumentos a la izquierda (ecuaciones, parámetros, capas) + plano de fases grande; análisis (puntos fijos, linealización, bifurcación) debajo */
+:root{
+  --bg:#eceff3; --panel:#ffffff; --field-bg:#f6f8fa; --ink:#17202a; --muted:#5b6876; --line:#d4dbe2;
+  --grid:#e6eaef; --axis:#9aa6b2; --canvas:#fbfcfd; --hover:#f1f4f8; --sel:#e6eefb;
+  --accent:#1d5fc4; --field:#56677a; --traj:#c44a10;
+  --stable:#1d5fc4; --unstable:#cf2f48; --saddle:#7d47c9; --nonhyp:#a87f00;
+  --ncx:#dd7400; --ncy:#0f8c66;
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;
+  --font-display:"Space Grotesk","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f141a; --panel:#171e26; --field-bg:#11171e; --ink:#e2e8ee; --muted:#93a0ad; --line:#2a3440;
+    --grid:#1e2731; --axis:#4c5967; --canvas:#131a22; --hover:#1d2630; --sel:#1d2c42;
+    --accent:#6ea8ff; --field:#8c9db0; --traj:#ff8a4d;
+    --stable:#62a2ff; --unstable:#ff5d75; --saddle:#b48cff; --nonhyp:#e2b734;
+    --ncx:#ffa13a; --ncy:#3ccf9e; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f141a; --panel:#171e26; --field-bg:#11171e; --ink:#e2e8ee; --muted:#93a0ad; --line:#2a3440;
+  --grid:#1e2731; --axis:#4c5967; --canvas:#131a22; --hover:#1d2630; --sel:#1d2c42;
+  --accent:#6ea8ff; --field:#8c9db0; --traj:#ff8a4d;
+  --stable:#62a2ff; --unstable:#ff5d75; --saddle:#b48cff; --nonhyp:#e2b734;
+  --ncx:#ffa13a; --ncy:#3ccf9e; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.45}
+.wrap{max-width:1520px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.wrap{padding-block:18px 12px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+h1{font-family:var(--font-display);font-weight:600;font-size:23px;letter-spacing:-.01em;margin:0}
+header p{margin:0;color:var(--muted)}
+.layout{display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;align-items:start;padding-block:0 36px}
+@media (max-width:940px){.layout{grid-template-columns:minmax(0,1fr)}}
+.side,.main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.block,.card{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:14px;min-width:0}
+.block{display:flex;flex-direction:column;gap:10px}
+h2{font-family:var(--font-display);font-size:12.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+input,select,button{font:inherit;color:inherit}
+input[type=text],input[type=number],select{background:var(--field-bg);border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
+input[type=number]{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums}
+select{padding-right:4px}
+button{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=range]{accent-color:var(--accent);width:100%;margin:0}
+input[type=checkbox]{accent-color:var(--accent);margin:0}
+.mono{font-family:var(--font-mono)}
+.muted{color:var(--muted)}
+.hint{margin:0;color:var(--muted);font-size:12.5px}
+.hint code{font-family:var(--font-mono);font-size:12px;color:var(--ink)}
+.eq{display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:6px}
+.eq .lhs{font-family:var(--font-mono);font-size:15px;text-align:right}
+.eq input{font-family:var(--font-mono);font-size:14px;width:100%}
+.err{margin:0;color:var(--unstable);font-size:12.5px}
+#preset{max-width:180px}
+.prow{display:grid;gap:5px;padding-block:9px 7px;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0;padding-top:0}
+.prow-top{display:grid;grid-template-columns:minmax(2.5ch,auto) minmax(0,1fr) 84px;gap:10px;align-items:center}
+.pname{font-family:var(--font-mono);font-weight:500;font-size:14px}
+.prow-range{display:flex;gap:12px;font-size:12px;color:var(--muted);align-items:center}
+.prow-range label{display:flex;gap:5px;align-items:center}
+.prow-range input{width:72px;padding:3px 6px;font-size:12px}
+.win{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.win label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+.win input{width:100%}
+.toggles{display:grid;gap:7px}
+.tg{display:flex;align-items:center;gap:8px;cursor:pointer}
+.sw{width:14px;height:3px;border-radius:2px;flex:none}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row label{display:flex;align-items:center;gap:6px}
+.card{display:flex;flex-direction:column;gap:10px}
+.cv-wrap{position:relative;width:100%;min-width:0}
+canvas{display:block;width:100%;border-radius:5px;background:var(--canvas)}
+#phase{touch-action:none;cursor:crosshair}
+#bif{cursor:pointer}
+.readout{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend svg{width:14px;height:14px;flex:none}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px}
+@media (max-width:1250px){.two{grid-template-columns:minmax(0,1fr)}}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th{font-weight:500;color:var(--muted);font-size:12px;text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}
+td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td.mono{font-size:12.5px}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--hover)}
+tbody tr.sel{background:var(--sel)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:2px 9px 2px 7px;border-radius:999px;color:var(--c);background:color-mix(in srgb,var(--c) 13%,transparent);white-space:nowrap}
+.chip svg{width:11px;height:11px}
+.c-stable{--c:var(--stable)} .c-unstable{--c:var(--unstable)} .c-saddle{--c:var(--saddle)} .c-nonhyp{--c:var(--nonhyp)} .c-acc{--c:var(--accent)}
+.pill{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.lin{display:grid;grid-template-columns:minmax(0,250px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:560px){.lin{grid-template-columns:minmax(0,1fr)}}
+.lin-info{display:flex;flex-direction:column;gap:10px;min-width:0}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:13px;align-items:baseline}
+.kv dt{color:var(--muted);font-family:var(--font-mono);font-size:12.5px}
+.kv dd{margin:0;font-family:var(--font-mono);font-size:12.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.mat{display:inline-grid;grid-template-columns:repeat(2,auto);gap:3px 16px;padding:3px 10px;border-left:1.5px solid var(--ink);border-right:1.5px solid var(--ink);border-radius:5px;font-family:var(--font-mono);font-size:12.5px;font-variant-numeric:tabular-nums;max-width:100%}
+.mat span{overflow-wrap:anywhere;min-width:0}
+.mat-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:var(--font-mono);font-size:13px}
+.note{margin:0;font-size:12.5px;color:var(--muted);border-left:2px solid var(--nonhyp);padding-left:8px}
+.bif-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:13px}
+.bif-ctl label{display:flex;align-items:center;gap:6px}
+.bif-ctl input[type=number]{width:78px}
+.events{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px}
+.events li{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.status{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<header class="wrap">
+  <h1>Plano de Fases</h1>
+  <p>ẋ = f(x, y), ẏ = g(x, y) con parámetros: flujo, nulclinas, puntos fijos, linealización y bifurcaciones.</p>
+</header>
+
+<main class="wrap layout">
+  <aside class="side">
+    <section class="block">
+      <div class="head"><h2>Sistema</h2>
+        <select id="preset" aria-label="Cargar un ejemplo"></select>
+      </div>
+      <label class="eq"><span class="lhs">ẋ =</span><input type="text" id="fx" spellcheck="false" autocomplete="off" aria-label="dx/dt"></label>
+      <label class="eq"><span class="lhs">ẏ =</span><input type="text" id="fy" spellcheck="false" autocomplete="off" aria-label="dy/dt"></label>
+      <p class="err" id="err" hidden></p>
+      <p class="hint">Variables <code>x</code>, <code>y</code>. Operadores <code>+ - * / ^</code>, funciones <code>sin cos tan exp log sqrt abs tanh</code>…, constantes <code>pi</code>, <code>e</code>. Cualquier otro nombre (<code>r</code>, <code>mu</code>, <code>a</code>) se vuelve un parámetro.</p>
+    </section>
+
+    <section class="block">
+      <h2>Parámetros</h2>
+      <div id="params"></div>
+      <p class="hint" id="noparams">Este sistema no tiene parámetros. Escribí un nombre nuevo en las ecuaciones (por ejemplo <code>r*x - x^3</code>) y aparece acá con su control.</p>
+    </section>
+
+    <section class="block">
+      <div class="head"><h2>Ventana</h2><button id="resetView" type="button">Restablecer</button></div>
+      <div class="win">
+        <label>x mín<input type="number" id="xmin" step="any"></label>
+        <label>x máx<input type="number" id="xmax" step="any"></label>
+        <label>y mín<input type="number" id="ymin" step="any"></label>
+        <label>y máx<input type="number" id="ymax" step="any"></label>
+      </div>
+      <p class="hint">Los puntos fijos y el diagrama de bifurcación se buscan dentro de esta ventana.</p>
+    </section>
+
+    <section class="block">
+      <h2>Capas</h2>
+      <div class="row"><label for="fieldMode">Campo</label>
+        <select id="fieldMode">
+          <option value="stream">Líneas de flujo</option>
+          <option value="arrows">Flechas</option>
+          <option value="none">Ninguno</option>
+        </select>
+      </div>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="tNcx" checked><span class="sw" style="background:var(--ncx)"></span>Nulclina ẋ = 0</label>
+        <label class="tg"><input type="checkbox" id="tNcy" checked><span class="sw" style="background:var(--ncy)"></span>Nulclina ẏ = 0</label>
+        <label class="tg"><input type="checkbox" id="tFp" checked><span class="sw" style="background:var(--ink)"></span>Puntos fijos</label>
+        <label class="tg"><input type="checkbox" id="tEig" checked><span class="sw" style="background:var(--muted)"></span>Autovectores</label>
+        <label class="tg"><input type="checkbox" id="tSep" checked><span class="sw" style="background:linear-gradient(90deg,var(--stable) 50%,var(--unstable) 50%)"></span>Separatrices de sillas</label>
+        <label class="tg"><input type="checkbox" id="tBack"><span class="sw" style="background:var(--traj);opacity:.5"></span>Trayectorias también hacia atrás</label>
+      </div>
+      <div class="row"><label for="tmax">Tiempo de integración T</label><input type="number" id="tmax" value="20" min="0.1" step="any" style="width:80px"></div>
+    </section>
+  </aside>
+
+  <div class="main">
+    <section class="card">
+      <div class="head"><h2>Retrato de fases</h2><span class="readout mono" id="readout">Mové el cursor sobre el plano</span></div>
+      <div class="cv-wrap"><canvas id="phase"></canvas></div>
+      <div class="legend" id="legend"></div>
+      <div class="foot">
+        <p class="hint">Clic: lanzar trayectoria · Arrastrar: mover · Rueda: zoom · Clic sobre un punto fijo: ver su linealización</p>
+        <button id="clearTraj" type="button">Borrar trayectorias</button>
+      </div>
+    </section>
+
+    <div class="two">
+      <section class="card">
+        <div class="head"><h2>Puntos fijos</h2><span class="pill" id="fpcount"></span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>x*</th><th>y*</th><th>λ₁</th><th>λ₂</th><th>Tipo</th></tr></thead>
+            <tbody id="fpbody"></tbody>
+          </table>
+        </div>
+        <p class="hint" id="fpnote" hidden></p>
+      </section>
+
+      <section class="card">
+        <div class="head"><h2>Linealización</h2><span id="linchip"></span></div>
+        <div class="lin">
+          <div class="cv-wrap"><canvas id="lincv"></canvas></div>
+          <div class="lin-info" id="lininfo"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="head"><h2>Diagrama de bifurcación</h2><span class="status" id="bifStatus"></span></div>
+      <div id="bifBody">
+        <div class="bif-ctl">
+          <label>Parámetro <select id="bifParam"></select></label>
+          <label>desde <input type="number" id="bifMin" step="any"></label>
+          <label>hasta <input type="number" id="bifMax" step="any"></label>
+          <label>Graficar <select id="bifVar"><option value="x">x*</option><option value="y">y*</option></select></label>
+          <label><input type="checkbox" id="bifCycles"> Ciclos límite estables (por simulación)</label>
+          <button type="button" id="bifRun">Recalcular</button>
+        </div>
+      </div>
+      <div class="cv-wrap" id="bifWrap"><canvas id="bif"></canvas></div>
+      <div class="legend" id="bifLegend"></div>
+      <ul class="events" id="bifEvents"></ul>
+      <p class="hint" id="bifEmpty" hidden>El diagrama de bifurcación aparece cuando el sistema tiene al menos un parámetro.</p>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---------- Colores desde los tokens ---------- */
+let C = {};
+function readColors(){
+  const s = getComputedStyle(document.documentElement), g = n => s.getPropertyValue(n).trim();
+  C = {bg:g('--canvas'),panel:g('--panel'),ink:g('--ink'),muted:g('--muted'),grid:g('--grid'),axis:g('--axis'),accent:g('--accent'),
+       field:g('--field'),traj:g('--traj'),stable:g('--stable'),unstable:g('--unstable'),saddle:g('--saddle'),nonhyp:g('--nonhyp'),
+       ncx:g('--ncx'),ncy:g('--ncy'),mono:g('--font-mono')};
+}
+
+/* ---------- Ejemplos ---------- */
+const PRESETS = [
+  {name:'Competencia (Lotka–Volterra)', fx:'x*(3 - x - a*y)', fy:'y*(2 - x - y)', params:[{name:'a',value:2,min:0,max:3}], view:[-0.5,3.5,-0.5,3], traj:[[0.5,2.6],[2.8,0.4],[0.2,0.3],[3.2,2.8]]},
+  {name:'Silla-nodo', fx:'r + x^2', fy:'-y', params:[{name:'r',value:-1,min:-2,max:1}], view:[-2.5,2.5,-2,2]},
+  {name:'Transcrítica', fx:'r*x - x^2', fy:'-y', params:[{name:'r',value:1,min:-2,max:2}], view:[-2.5,2.5,-2,2]},
+  {name:'Horquilla supercrítica', fx:'r*x - x^3', fy:'-y', params:[{name:'r',value:1,min:-1,max:2}], view:[-2,2,-1.5,1.5]},
+  {name:'Horquilla subcrítica', fx:'r*x + x^3 - x^5', fy:'-y', params:[{name:'r',value:-0.1,min:-0.5,max:0.5}], view:[-1.6,1.6,-1,1]},
+  {name:'Hopf supercrítica', fx:'mu*x - y - x*(x^2 + y^2)', fy:'x + mu*y - y*(x^2 + y^2)', params:[{name:'mu',value:0.5,min:-1,max:1}], view:[-1.6,1.6,-1.6,1.6], cycles:true, traj:[[0.05,0]]},
+  {name:'Van der Pol', fx:'y', fy:'mu*(1 - x^2)*y - x', params:[{name:'mu',value:1,min:-2,max:3}], view:[-4,4,-5,5], cycles:true, traj:[[0.1,0]]},
+  {name:'Péndulo amortiguado', fx:'y', fy:'-sin(x) - b*y', params:[{name:'b',value:0.3,min:0,max:2}], view:[-7,7,-4,4], traj:[[-6.5,3]]},
+  {name:'Glucólisis (Sel’kov)', fx:'-x + a*y + x^2*y', fy:'b - a*y - x^2*y', params:[{name:'a',value:0.08,min:0,max:0.2},{name:'b',value:0.6,min:0.1,max:1.2}], view:[-0.2,3,-0.2,3], cycles:true, bif:'b', traj:[[2.5,0.2]]},
+  {name:'Desacoplado: ẋ = h(x), ẏ = j(y)', fx:'sin(x)', fy:'y - y^3', params:[], view:[-7,7,-2,2]},
+];
+
+/* ---------- Estado ---------- */
+let params = [];               // {name,value,min,max}
+const paramMem = {};
+let view = {xmin:-1,xmax:1,ymin:-1,ymax:1};
+let homeView = {...view};
+let trajs = [];                // condiciones iniciales [x,y]
+let sys = null;                // {f,g,J,Jsym}
+let fixedPts = [];
+let selPos = null, selIdx = -1;
+let phaseT = null;
+const pvals = () => params.map(p => p.value);
+
+/* ---------- Expresiones → funciones JS ---------- */
+const RESERVED = new Set(['x','y','pi','e','PI','E']);
+const FN1 = {sin:'Math.sin',cos:'Math.cos',tan:'Math.tan',asin:'Math.asin',acos:'Math.acos',atan:'Math.atan',sinh:'Math.sinh',cosh:'Math.cosh',tanh:'Math.tanh',
+  asinh:'Math.asinh',acosh:'Math.acosh',atanh:'Math.atanh',exp:'Math.exp',expm1:'Math.expm1',log:'Math.log',log1p:'Math.log1p',log10:'Math.log10',log2:'Math.log2',
+  sqrt:'Math.sqrt',cbrt:'Math.cbrt',abs:'Math.abs',sign:'Math.sign',floor:'Math.floor',ceil:'Math.ceil',round:'Math.round',min:'Math.min',max:'Math.max',
+  atan2:'Math.atan2',pow:'Math.pow',hypot:'Math.hypot'};
+const FNR = {sec:'Math.cos',csc:'Math.sin',cot:'Math.tan',sech:'Math.cosh',csch:'Math.sinh',coth:'Math.tanh'};
+
+function prep(s){ return s.replace(/\bln\s*\(/g,'log(').replace(/\*\*/g,'^').replace(/[−–]/g,'-').replace(/·/g,'*'); }
+function toJS(n,pidx){
+  if(n.isParenthesisNode) return '('+toJS(n.content,pidx)+')';
+  if(n.isConstantNode){ const v = Number(n.value); if(!isFinite(v)) throw new Error('constante no numérica'); return '('+v+')'; }
+  if(n.isSymbolNode){
+    const s = n.name;
+    if(s==='x'||s==='y') return s;
+    if(pidx.has(s)) return 'p['+pidx.get(s)+']';
+    if(s==='pi'||s==='PI') return 'Math.PI';
+    if(s==='e'||s==='E') return 'Math.E';
+    throw new Error('símbolo desconocido «'+s+'»');
+  }
+  if(n.isOperatorNode){
+    const a = n.args.map(c => toJS(c,pidx));
+    if(a.length===1){
+      if(n.fn==='unaryMinus') return '(-'+a[0]+')';
+      if(n.fn==='unaryPlus') return a[0];
+      throw new Error('operador no soportado «'+n.op+'»');
+    }
+    if(n.op==='^'||n.op==='.^') return 'Math.pow('+a[0]+','+a[1]+')';
+    const m = {'+':'+','-':'-','*':'*','.*':'*','/':'/','./':'/','mod':'%','%':'%'}[n.op];
+    if(m) return '('+a.join(m)+')';
+    throw new Error('operador no soportado «'+n.op+'»');
+  }
+  if(n.isFunctionNode){
+    const name = n.fn && n.fn.name;
+    const a = n.args.map(c => toJS(c,pidx));
+    if(name==='log' && a.length===2) return '(Math.log('+a[0]+')/Math.log('+a[1]+'))';
+    if(name==='square') return 'Math.pow('+a[0]+',2)';
+    if(name==='cube') return 'Math.pow('+a[0]+',3)';
+    if(name==='nthRoot') return 'Math.pow('+a[0]+',1/'+(a[1]||'2')+')';
+    if(FNR[name]) return '(1/'+FNR[name]+'('+a[0]+'))';
+    if(FN1[name]) return FN1[name]+'('+a.join(',')+')';
+    if(name && !FN1[name]) throw new Error('«'+name+'(…)» se lee como función; si es un parámetro escribí '+name+'*(…)');
+    throw new Error('función no soportada');
+  }
+  throw new Error('expresión no soportada');
+}
+function symbolsOf(node){
+  const out = [];
+  node.traverse((n,path) => { if(n.isSymbolNode && path!=='fn' && !out.includes(n.name)) out.push(n.name); });
+  return out;
+}
+function numJ(f,g){
+  return (x,y,p) => {
+    const h = 1e-6*(1+Math.abs(x)), k = 1e-6*(1+Math.abs(y));
+    return [(f(x+h,y,p)-f(x-h,y,p))/(2*h),(f(x,y+k,p)-f(x,y-k,p))/(2*k),(g(x+h,y,p)-g(x-h,y,p))/(2*h),(g(x,y+k,p)-g(x,y-k,p))/(2*k)];
+  };
+}
+function compile(){
+  const fs = prep($('fx').value), gs = prep($('fy').value);
+  if(!fs.trim()||!gs.trim()) throw new Error('Completá ẋ y ẏ.');
+  let nf, ng;
+  try{ nf = math.parse(fs); }catch(e){ throw new Error('No pude leer ẋ: '+e.message); }
+  try{ ng = math.parse(gs); }catch(e){ throw new Error('No pude leer ẏ: '+e.message); }
+  const used = [];
+  for(const s of [...symbolsOf(nf),...symbolsOf(ng)]) if(!RESERVED.has(s) && !used.includes(s)) used.push(s);
+  const pidx = new Map(used.map((s,i)=>[s,i]));
+  let fj, gj;
+  try{ fj = toJS(nf,pidx); }catch(e){ throw new Error('ẋ: '+e.message); }
+  try{ gj = toJS(ng,pidx); }catch(e){ throw new Error('ẏ: '+e.message); }
+  const f = new Function('x','y','p','return '+fj+';');
+  const g = new Function('x','y','p','return '+gj+';');
+  const newParams = used.map(n => params.find(q=>q.name===n) || paramMem[n] || {name:n,value:1,min:-2,max:2});
+  const pv = newParams.map(q=>q.value);
+  const num = numJ(f,g);
+  let J = num, Jsym = null;
+  try{
+    const d = [math.derivative(nf,'x'),math.derivative(nf,'y'),math.derivative(ng,'x'),math.derivative(ng,'y')];
+    const fns = d.map(n => new Function('x','y','p','return '+toJS(n,pidx)+';'));
+    const Js = (x,y,p) => [fns[0](x,y,p),fns[1](x,y,p),fns[2](x,y,p),fns[3](x,y,p)];
+    let ok = true;
+    for(const [tx,ty] of [[0.37,-0.53],[1.21,0.77],[-0.8,0.45]]){
+      const a = Js(tx,ty,pv), b = num(tx,ty,pv);
+      for(let i=0;i<4;i++) if(isFinite(a[i]) && isFinite(b[i]) && Math.abs(a[i]-b[i]) > 1e-4*(1+Math.abs(b[i]))) ok = false;
+    }
+    if(ok){ J = Js; Jsym = d.map(n => n.toString().replace(/ \* /g,'·').replace(/ \^ /g,'^')); }
+  }catch(e){ /* se usa el jacobiano numérico */ }
+  for(const q of params) paramMem[q.name] = q;
+  const changed = newParams.map(q=>q.name).join(',') !== params.map(q=>q.name).join(',');
+  params = newParams;
+  sys = {f,g,J,Jsym};
+  return changed;
+}
+
+/* ---------- Puntos fijos ---------- */
+function solveFP(x,y,p){
+  const f = sys.f, g = sys.g;
+  let F = f(x,y,p), G = g(x,y,p), r = Math.hypot(F,G);
+  for(let i=0;i<60;i++){
+    if(!isFinite(r)) return null;
+    if(r < 1e-12) return [x,y];
+    const [a,b,c,d] = sys.J(x,y,p);
+    const A = a*a+c*c, B = a*b+c*d, D = b*b+d*d, mu = 1e-10*(A+D)+1e-300;
+    const r1 = a*F+c*G, r2 = b*F+d*G, A2 = A+mu, D2 = D+mu, det = A2*D2-B*B;
+    if(!isFinite(det) || det===0) return null;
+    const dx = -(D2*r1-B*r2)/det, dy = -(-B*r1+A2*r2)/det;
+    let t = 1, ok = false;
+    for(let k=0;k<25;k++){
+      const nx = x+t*dx, ny = y+t*dy, nF = f(nx,ny,p), nG = g(nx,ny,p), nr = Math.hypot(nF,nG);
+      if(isFinite(nr) && nr < r){ x=nx; y=ny; F=nF; G=nG; r=nr; ok=true; break; }
+      t *= 0.5;
+    }
+    if(!ok) break;
+  }
+  return r < 1e-8 ? [x,y] : null;
+}
+function findFP(p,v,seeds,n){
+  const sx = v.xmax-v.xmin, sy = v.ymax-v.ymin, tol = 1e-5*Math.max(sx,sy), out = [];
+  const tryS = (x0,y0) => {
+    if(out.length > 60) return;
+    const r = solveFP(x0,y0,p); if(!r) return;
+    let [x,y] = r;
+    if(x<v.xmin-0.05*sx || x>v.xmax+0.05*sx || y<v.ymin-0.05*sy || y>v.ymax+0.05*sy) return;
+    if(Math.abs(x) < 1e-9*sx) x = 0;
+    if(Math.abs(y) < 1e-9*sy) y = 0;
+    for(const q of out) if(Math.abs(q[0]-x)<tol && Math.abs(q[1]-y)<tol) return;
+    out.push([x,y]);
+  };
+  if(seeds) for(const s of seeds) tryS(s[0],s[1]);
+  for(let i=0;i<n;i++) for(let j=0;j<n;j++) tryS(v.xmin+(i+0.5)/n*sx, v.ymin+(j+0.5)/n*sy);
+  return out;
+}
+function eigvec(J,l){
+  const [a,b,c,d] = J, v1 = [b,l-a], v2 = [l-d,c];
+  const n1 = Math.hypot(v1[0],v1[1]), n2 = Math.hypot(v2[0],v2[1]);
+  const v = n1>=n2 ? v1 : v2, n = Math.max(n1,n2);
+  if(!(n > 1e-12)) return null;
+  return [v[0]/n, v[1]/n];
+}
+function classify(J){
+  const [a,b,c,d] = J, tr = a+d, det = a*d-b*c, disc = tr*tr-4*det;
+  const sc = Math.max(1e-12, Math.abs(a)+Math.abs(b)+Math.abs(c)+Math.abs(d));
+  const eps = 1e-7*sc, eps2 = 1e-7*sc*sc;
+  let ev, vec = null;
+  if(disc >= 0){
+    const s = Math.sqrt(disc); ev = [{re:(tr+s)/2,im:0},{re:(tr-s)/2,im:0}];
+    vec = [eigvec(J,ev[0].re), eigvec(J,ev[1].re)];
+  } else {
+    const s = Math.sqrt(-disc); ev = [{re:tr/2,im:s/2},{re:tr/2,im:-s/2}];
+  }
+  let type, stab;
+  if(!isFinite(det) || !isFinite(tr)){ type = 'Indefinido'; stab = 'nonhyp'; }
+  else if(Math.abs(det) < eps2){ type = 'No hiperbólico (λ = 0)'; stab = 'nonhyp'; }
+  else if(det < 0){ type = 'Silla'; stab = 'saddle'; }
+  else if(Math.abs(tr) < eps){ type = 'Centro (lineal)'; stab = 'nonhyp'; }
+  else {
+    const st = tr < 0; stab = st ? 'stable' : 'unstable';
+    const w = st ? 'estable' : 'inestable';
+    if(Math.abs(disc) < eps2) type = (Math.abs(b)+Math.abs(c) < eps ? 'Nodo estrella ' : 'Nodo degenerado ')+w;
+    else if(disc > 0) type = 'Nodo '+w;
+    else type = 'Foco '+w+' (espiral)';
+  }
+  return {tr,det,disc,ev,vec,type,stab};
+}
+function computeFixedPoints(p){
+  const raw = findFP(p, view, fixedPts.map(q=>[q.x,q.y]), 14);
+  fixedPts = raw.map(([x,y]) => { const J = sys.J(x,y,p); return {x,y,J,...classify(J)}; })
+                .sort((A,B) => A.x-B.x || A.y-B.y);
+  selIdx = -1;
+  if(fixedPts.length){
+    if(selPos){
+      let best = Infinity;
+      fixedPts.forEach((q,i) => { const d = Math.hypot(q.x-selPos[0], q.y-selPos[1]); if(d<best){best=d; selIdx=i;} });
+    } else selIdx = 0;
+    selPos = [fixedPts[selIdx].x, fixedPts[selIdx].y];
+  }
+}
+
+/* ---------- Integración ---------- */
+function integrate(x,y,p,T,sgn,box,maxLen){
+  const f = sys.f, g = sys.g, pts = [[x,y]];
+  let t = 0, n = 0;
+  while(t < T && n < 40000){
+    const u = f(x,y,p), v = g(x,y,p), sp = Math.hypot(u,v);
+    if(!isFinite(sp) || sp < 1e-13) break;
+    const dt = sgn*Math.min(0.02, maxLen/sp, T-t);
+    const k2u = f(x+dt/2*u, y+dt/2*v, p), k2v = g(x+dt/2*u, y+dt/2*v, p);
+    const k3u = f(x+dt/2*k2u, y+dt/2*k2v, p), k3v = g(x+dt/2*k2u, y+dt/2*k2v, p);
+    const k4u = f(x+dt*k3u, y+dt*k3v, p), k4v = g(x+dt*k3u, y+dt*k3v, p);
+    x += dt/6*(u+2*k2u+2*k3u+k4u); y += dt/6*(v+2*k2v+2*k3v+k4v);
+    t += Math.abs(dt); n++;
+    if(!isFinite(x) || !isFinite(y)) break;
+    pts.push([x,y]);
+    if(x<box.xmin || x>box.xmax || y<box.ymin || y>box.ymax) break;
+  }
+  return pts;
+}
+function bigBox(v,k){ const sx = v.xmax-v.xmin, sy = v.ymax-v.ymin; return {xmin:v.xmin-k*sx, xmax:v.xmax+k*sx, ymin:v.ymin-k*sy, ymax:v.ymax+k*sy}; }
+
+/* ---------- Dibujo: utilidades ---------- */
+function mkT(w,h,v){
+  const kx = w/(v.xmax-v.xmin), ky = h/(v.ymax-v.ymin);
+  return {w,h,kx,ky, X:x=>(x-v.xmin)*kx, Y:y=>h-(y-v.ymin)*ky, ix:px=>v.xmin+px/kx, iy:py=>v.ymin+(h-py)/ky};
+}
+function setupCanvas(cv,h){
+  const dpr = window.devicePixelRatio || 1, w = cv.parentElement.clientWidth;
+  cv.style.height = h+'px';
+  const W = Math.round(w*dpr), H = Math.round(h*dpr);
+  if(cv.width !== W) cv.width = W;
+  if(cv.height !== H) cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  return {ctx,w,h};
+}
+function niceStep(span,n){
+  const raw = span/n, m = Math.pow(10, Math.floor(Math.log10(raw))), r = raw/m;
+  return (r<1.5?1:r<3.5?2:r<7.5?5:10)*m;
+}
+function tickLabel(v,step){
+  const dec = Math.max(0, -Math.floor(Math.log10(step)+1e-9));
+  let s = v.toFixed(dec); if(/^-0(\.0*)?$/.test(s)) s = s.slice(1);
+  return s.replace('-','−');
+}
+function drawGrid(ctx,T,v,labels,ticks){
+  const sx = niceStep(v.xmax-v.xmin, Math.max(3,T.w/90)), sy = niceStep(v.ymax-v.ymin, Math.max(3,T.h/70));
+  ctx.lineWidth = 1; ctx.strokeStyle = C.grid; ctx.beginPath();
+  for(let k=Math.ceil(v.xmin/sx); k*sx<=v.xmax; k++){ const X = Math.round(T.X(k*sx))+0.5; ctx.moveTo(X,0); ctx.lineTo(X,T.h); }
+  for(let k=Math.ceil(v.ymin/sy); k*sy<=v.ymax; k++){ const Y = Math.round(T.Y(k*sy))+0.5; ctx.moveTo(0,Y); ctx.lineTo(T.w,Y); }
+  ctx.stroke();
+  ctx.strokeStyle = C.axis; ctx.beginPath();
+  if(v.xmin<0 && v.xmax>0){ const X = Math.round(T.X(0))+0.5; ctx.moveTo(X,0); ctx.lineTo(X,T.h); }
+  if(v.ymin<0 && v.ymax>0){ const Y = Math.round(T.Y(0))+0.5; ctx.moveTo(0,Y); ctx.lineTo(T.w,Y); }
+  ctx.stroke();
+  if(!labels) return;
+  if(ticks !== false){
+    ctx.fillStyle = C.muted; ctx.font = '11px '+C.mono; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+    for(let k=Math.ceil(v.xmin/sx); k*sx<=v.xmax; k++){ const X = T.X(k*sx); if(X>14 && X<T.w-14) ctx.fillText(tickLabel(k*sx,sx), X, T.h-3); }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for(let k=Math.ceil(v.ymin/sy); k*sy<=v.ymax; k++){ const Y = T.Y(k*sy); if(Y>10 && Y<T.h-18) ctx.fillText(tickLabel(k*sy,sy), 4, Y); }
+  }
+  ctx.font = 'italic 13px '+C.mono; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = C.ink; ctx.fillText(labels[0], T.w-6, T.h-16);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(labels[1], 22, 6);
+}
+function arrowHead(ctx,x,y,ang,s){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.beginPath();
+  ctx.moveTo(s,0); ctx.lineTo(-s*0.85,s*0.62); ctx.lineTo(-s*0.85,-s*0.62); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+/* Líneas de flujo espaciadas (grilla de ocupación) */
+function drawStreamlines(ctx,T,vf,color,d,lw){
+  const {w,h} = T, cw = Math.ceil(w/d), ch = Math.ceil(h/d), N = cw*ch;
+  const occ = new Int32Array(N).fill(-1);
+  const cell = (px,py) => (px<0||py<0||px>=w||py>=h) ? -1 : Math.floor(py/d)*cw+Math.floor(px/d);
+  const dir = (px,py) => {
+    const r = vf(T.ix(px),T.iy(py)), a = r[0]*T.kx, b = -r[1]*T.ky, m = Math.hypot(a,b);
+    return (m>1e-12 && isFinite(m)) ? [a/m,b/m] : null;
+  };
+  const ds = 1.6, maxSteps = Math.ceil(3*(w+h)/ds), loopGap = 3*d/ds+4;
+  const trace = (px,py,sgn,id,visit) => {
+    const out = []; let x = px, y = py, pd = null;
+    for(let k=1;k<=maxSteps;k++){
+      const d1 = dir(x,y); if(!d1) break;
+      const d2 = dir(x+sgn*d1[0]*ds/2, y+sgn*d1[1]*ds/2); if(!d2) break;
+      if(d1[0]*d2[0]+d1[1]*d2[1] < 0) break;
+      if(pd && pd[0]*d2[0]+pd[1]*d2[1] < -0.2) break;
+      const nx = x+sgn*d2[0]*ds, ny = y+sgn*d2[1]*ds, c = cell(nx,ny);
+      if(c < 0){ out.push([nx,ny]); break; }
+      if(occ[c] !== -1 && occ[c] !== id) break;
+      const stamp = sgn*k;
+      if(visit.has(c)){ if(Math.abs(visit.get(c)-stamp) > loopGap) break; } else visit.set(c,stamp);
+      pd = d2; x = nx; y = ny; out.push([x,y]);
+    }
+    return out;
+  };
+  const order = new Int32Array(N); for(let i=0;i<N;i++) order[i] = i;
+  let s = 987654321;
+  for(let i=N-1;i>0;i--){ s = (s*1103515245+12345) & 0x7fffffff; const j = s%(i+1); const t = order[i]; order[i] = order[j]; order[j] = t; }
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lw; ctx.lineJoin = 'round';
+  const heads = []; let id = 0;
+  for(let o=0;o<N;o++){
+    const c = order[o]; if(occ[c] !== -1) continue;
+    const px = (c%cw+0.5)*d, py = (Math.floor(c/cw)+0.5)*d;
+    if(px>=w || py>=h){ occ[c] = id++; continue; }
+    const visit = new Map([[c,0]]);
+    const fw = trace(px,py,1,id,visit), bw = trace(px,py,-1,id,visit);
+    const pts = bw.reverse(); pts.push([px,py]); for(const q of fw) pts.push(q);
+    if(pts.length < 8){ occ[c] = id++; continue; }
+    for(const q of pts){ const cc = cell(q[0],q[1]); if(cc>=0 && occ[cc]===-1) occ[cc] = id; }
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+    ctx.stroke();
+    const L = pts.length, every = Math.round(120/ds);
+    const marks = L < every ? [L>>1] : []; for(let m=Math.round(every/2); m<L-2; m+=every) marks.push(m);
+    for(const m of marks){ const a = pts[Math.max(0,m-2)], b = pts[Math.min(L-1,m+2)]; heads.push([pts[m][0],pts[m][1],Math.atan2(b[1]-a[1],b[0]-a[0])]); }
+    id++;
+  }
+  for(const hd of heads) arrowHead(ctx,hd[0],hd[1],hd[2],3.6);
+}
+function drawArrowField(ctx,T,vf,color){
+  const sp = 26, items = [];
+  for(let py=sp/2; py<T.h; py+=sp) for(let px=sp/2; px<T.w; px+=sp){
+    const r = vf(T.ix(px),T.iy(py)), a = r[0]*T.kx, b = -r[1]*T.ky, m = Math.hypot(a,b);
+    if(isFinite(m) && m>0) items.push([px,py,a/m,b/m,m]);
+  }
+  const ms = items.map(i=>i[4]).sort((a,b)=>a-b), ref = ms[Math.floor(ms.length*0.85)] || 1;
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.2;
+  for(const [px,py,ux,uy,m] of items){
+    const s = Math.min(1, Math.log1p(4*m/ref)/Math.log1p(4)), L = sp*0.78*(0.3+0.7*s);
+    ctx.globalAlpha = 0.35+0.65*s;
+    ctx.beginPath(); ctx.moveTo(px-ux*L/2,py-uy*L/2); ctx.lineTo(px+ux*L/2-ux*2,py+uy*L/2-uy*2); ctx.stroke();
+    arrowHead(ctx,px+ux*L/2-ux*2,py+uy*L/2-uy*2,Math.atan2(uy,ux),3.4);
+  }
+  ctx.globalAlpha = 1;
+}
+/* Nulclinas por marching squares */
+function drawContour(ctx,T,fn,color,res){
+  const nx = Math.ceil(T.w/res), ny = Math.ceil(T.h/res), W = nx+1, vals = new Float64Array(W*(ny+1));
+  for(let j=0;j<=ny;j++) for(let i=0;i<=nx;i++) vals[j*W+i] = fn(T.ix(i*res),T.iy(j*res));
+  ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.beginPath();
+  const pts = [];
+  const edge = (a,b,ax,ay,bx,by) => { if((a>0)!==(b>0)){ const t = a/(a-b); pts.push(ax+t*(bx-ax), ay+t*(by-ay)); } };
+  for(let j=0;j<ny;j++) for(let i=0;i<nx;i++){
+    const v00 = vals[j*W+i], v10 = vals[j*W+i+1], v01 = vals[(j+1)*W+i], v11 = vals[(j+1)*W+i+1];
+    if(!(isFinite(v00)&&isFinite(v10)&&isFinite(v01)&&isFinite(v11))) continue;
+    const x0 = i*res, y0 = j*res, x1 = x0+res, y1 = y0+res;
+    pts.length = 0;
+    edge(v00,v10,x0,y0,x1,y0); edge(v10,v11,x1,y0,x1,y1); edge(v01,v11,x0,y1,x1,y1); edge(v00,v01,x0,y0,x0,y1);
+    if(pts.length < 4) continue;
+    const mid = fn(T.ix(x0+res/2),T.iy(y0+res/2)), big = Math.max(Math.abs(v00),Math.abs(v10),Math.abs(v01),Math.abs(v11));
+    if(Math.abs(mid) > 2*big) continue; // salto (discontinuidad), no un cero
+    ctx.moveTo(pts[0],pts[1]); ctx.lineTo(pts[2],pts[3]);
+    if(pts.length >= 8){ ctx.moveTo(pts[4],pts[5]); ctx.lineTo(pts[6],pts[7]); }
+  }
+  ctx.stroke(); ctx.lineCap = 'butt';
+}
+function polyline(ctx,T,pts){
+  ctx.beginPath();
+  for(let i=0;i<pts.length;i++){ const X = T.X(pts[i][0]), Y = T.Y(pts[i][1]); i ? ctx.lineTo(X,Y) : ctx.moveTo(X,Y); }
+  ctx.stroke();
+}
+function headsAlong(ctx,T,pts,every,size){
+  let acc = 0;
+  for(let i=1;i<pts.length-1;i++){
+    const X0 = T.X(pts[i-1][0]), Y0 = T.Y(pts[i-1][1]), X1 = T.X(pts[i][0]), Y1 = T.Y(pts[i][1]);
+    acc += Math.hypot(X1-X0,Y1-Y0);
+    if(acc > every && X1>0 && X1<T.w && Y1>0 && Y1<T.h){
+      const j = Math.min(pts.length-1,i+2);
+      arrowHead(ctx,X1,Y1,Math.atan2(T.Y(pts[j][1])-Y0, T.X(pts[j][0])-X0),size); acc = 0;
+    }
+  }
+}
+function drawMarker(ctx,x,y,stab,r){
+  ctx.lineWidth = 1.8;
+  if(stab==='stable'){ ctx.fillStyle = C.stable; ctx.strokeStyle = C.panel; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); ctx.stroke(); }
+  else if(stab==='unstable'){ ctx.fillStyle = C.panel; ctx.strokeStyle = C.unstable; ctx.beginPath(); ctx.arc(x,y,r-0.6,0,7); ctx.fill(); ctx.stroke(); }
+  else if(stab==='saddle'){
+    ctx.fillStyle = C.panel; ctx.beginPath(); ctx.arc(x,y,r-0.6,0,7); ctx.fill();
+    ctx.fillStyle = C.saddle; ctx.beginPath(); ctx.arc(x,y,r-0.6,Math.PI/2,Math.PI*1.5); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = C.saddle; ctx.beginPath(); ctx.arc(x,y,r-0.6,0,7); ctx.stroke();
+  } else {
+    ctx.fillStyle = C.nonhyp; ctx.strokeStyle = C.panel; ctx.beginPath();
+    ctx.moveTo(x,y-r-1); ctx.lineTo(x+r+1,y); ctx.lineTo(x,y+r+1); ctx.lineTo(x-r-1,y); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+}
+function glyph(kind){
+  const s = {
+    stable:'<circle cx="7" cy="7" r="5" style="fill:var(--stable)"/>',
+    unstable:'<circle cx="7" cy="7" r="4.4" style="fill:var(--panel);stroke:var(--unstable);stroke-width:1.8"/>',
+    saddle:'<circle cx="7" cy="7" r="4.4" style="fill:var(--panel)"/><path d="M7 2.6 A4.4 4.4 0 0 0 7 11.4 Z" style="fill:var(--saddle)"/><circle cx="7" cy="7" r="4.4" style="fill:none;stroke:var(--saddle);stroke-width:1.6"/>',
+    nonhyp:'<path d="M7 1.5 L12.5 7 L7 12.5 L1.5 7 Z" style="fill:var(--nonhyp)"/>',
+  }[kind];
+  return '<svg viewBox="0 0 14 14" aria-hidden="true">'+s+'</svg>';
+}
+const lineGlyph = (c,dash) => '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 7 H13" style="stroke:'+c+';stroke-width:2.2'+(dash?';stroke-dasharray:3 2':'')+'"/></svg>';
+
+/* ---------- Formato ---------- */
+function fmt(v,dig=4){
+  if(v===null || v===undefined || !isFinite(v)) return '—';
+  const a = Math.abs(v); if(a < 1e-10) return '0';
+  let s;
+  if(a >= 1e5 || a < 1e-3) s = v.toExponential(2);
+  else { s = v.toPrecision(Math.max(dig, Math.floor(Math.log10(a))+1)); if(s.includes('.')) s = s.replace(/0+$/,'').replace(/\.$/,''); }
+  return s.replace('-','−');
+}
+const fmtEv = e => e.im === 0 ? fmt(e.re) : (Math.abs(e.re)<1e-10 ? '' : fmt(e.re)+' ')+(e.im<0?'− ':(Math.abs(e.re)<1e-10?'':'+ '))+fmt(Math.abs(e.im))+'i';
+const fmtVec = v => v ? '('+fmt(v[0],3)+', '+fmt(v[1],3)+')' : '—';
+const STAB_LABEL = {stable:'estable',unstable:'inestable',saddle:'silla',nonhyp:'no hiperbólico'};
+const chip = (fp) => '<span class="chip c-'+fp.stab+'">'+glyph(fp.stab)+fp.type+'</span>';
+
+/* ---------- Plano de fases ---------- */
+function phaseHeight(w){ return Math.round(Math.max(320, Math.min(w*0.68, window.innerHeight*0.78, 720))); }
+function drawPhase(p){
+  const cv = $('phase'), w = cv.parentElement.clientWidth, {ctx,h} = setupCanvas(cv, phaseHeight(w));
+  const T = mkT(w,h,view); phaseT = T;
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,w,h);
+  drawGrid(ctx,T,view,['x','y']);
+  if(!sys) return;
+  const vf = (x,y) => [sys.f(x,y,p), sys.g(x,y,p)];
+  const mode = $('fieldMode').value;
+  if(mode==='stream') drawStreamlines(ctx,T,vf,C.field,Math.max(15,Math.min(22,w/48)),1);
+  else if(mode==='arrows') drawArrowField(ctx,T,vf,C.field);
+  ctx.globalAlpha = 1;
+  if($('tNcx').checked) drawContour(ctx,T,(x,y)=>sys.f(x,y,p),C.ncx,3);
+  if($('tNcy').checked) drawContour(ctx,T,(x,y)=>sys.g(x,y,p),C.ncy,3);
+  const span = Math.max(view.xmax-view.xmin, view.ymax-view.ymin), box = bigBox(view,1), maxLen = 0.004*span;
+  const Tm = Math.max(0.1, +$('tmax').value || 20);
+  if($('tSep').checked){
+    ctx.lineWidth = 1.8;
+    for(const fp of fixedPts){
+      if(fp.stab !== 'saddle' || !fp.vec || !fp.vec[0] || !fp.vec[1]) continue;
+      const eps = 1e-4*span, Ts = Math.max(Tm,40);
+      for(const [k,vv,sgn,col] of [[0,fp.vec[0],1,C.unstable],[1,fp.vec[1],-1,C.stable]]){
+        ctx.strokeStyle = col; ctx.fillStyle = col;
+        for(const s of [1,-1]){
+          const pts = integrate(fp.x+s*eps*vv[0], fp.y+s*eps*vv[1], p, Ts, sgn, box, maxLen);
+          polyline(ctx,T,pts);
+          if(sgn===1) headsAlong(ctx,T,pts,90,4); else headsAlong(ctx,T,pts.slice().reverse(),90,4);
+        }
+      }
+    }
+  }
+  ctx.strokeStyle = C.traj; ctx.fillStyle = C.traj;
+  for(const [x0,y0] of trajs){
+    ctx.lineWidth = 2;
+    const fw = integrate(x0,y0,p,Tm,1,box,maxLen);
+    polyline(ctx,T,fw); headsAlong(ctx,T,fw,110,4.6);
+    if($('tBack').checked){
+      ctx.globalAlpha = 0.5; ctx.setLineDash([5,4]);
+      const bw = integrate(x0,y0,p,Tm,-1,box,maxLen);
+      polyline(ctx,T,bw); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    ctx.beginPath(); ctx.arc(T.X(x0),T.Y(y0),3.2,0,7); ctx.fill();
+  }
+  if(!$('tFp').checked) return;
+  if($('tEig').checked){
+    ctx.lineWidth = 1.5; ctx.setLineDash([4,3]);
+    for(const fp of fixedPts){
+      if(!fp.vec) continue;
+      fp.vec.forEach((vv,i) => {
+        if(!vv) return;
+        const a = vv[0]*T.kx, b = -vv[1]*T.ky, m = Math.hypot(a,b); if(!(m>0)) return;
+        const X = T.X(fp.x), Y = T.Y(fp.y), L = 34;
+        ctx.strokeStyle = fp.ev[i].re > 0 ? C.unstable : fp.ev[i].re < 0 ? C.stable : C.nonhyp;
+        ctx.beginPath(); ctx.moveTo(X-a/m*L,Y-b/m*L); ctx.lineTo(X+a/m*L,Y+b/m*L); ctx.stroke();
+      });
+    }
+    ctx.setLineDash([]);
+  }
+  fixedPts.forEach((fp,i) => {
+    const X = T.X(fp.x), Y = T.Y(fp.y);
+    if(i===selIdx){ ctx.strokeStyle = C.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X,Y,11,0,7); ctx.stroke(); }
+    drawMarker(ctx,X,Y,fp.stab,6);
+    ctx.fillStyle = C.ink; ctx.font = '600 11px '+C.mono; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText(String(i+1), X+8, Y-6);
+  });
+}
+function buildLegend(){
+  const it = [];
+  if($('tFp').checked) it.push(['stable','Estable'],['unstable','Inestable'],['saddle','Silla'],['nonhyp','No hiperbólico']);
+  let html = it.map(([k,l]) => '<span>'+glyph(k)+l+'</span>').join('');
+  if($('tNcx').checked) html += '<span>'+lineGlyph('var(--ncx)')+'ẋ = 0</span>';
+  if($('tNcy').checked) html += '<span>'+lineGlyph('var(--ncy)')+'ẏ = 0</span>';
+  if($('tSep').checked && $('tFp').checked && fixedPts.some(q=>q.stab==='saddle')) html += '<span>'+lineGlyph('var(--stable)')+'Variedad estable</span><span>'+lineGlyph('var(--unstable)')+'Variedad inestable</span>';
+  if(trajs.length) html += '<span>'+lineGlyph('var(--traj)')+'Trayectoria</span>';
+  $('legend').innerHTML = html;
+}
+
+/* ---------- Tabla y linealización ---------- */
+function updateFPTable(){
+  const tb = $('fpbody');
+  $('fpcount').textContent = fixedPts.length === 1 ? '1 en la ventana' : fixedPts.length+' en la ventana';
+  if(!fixedPts.length){ tb.innerHTML = '<tr><td colspan="6" class="muted">No hay puntos fijos dentro de la ventana.</td></tr>'; }
+  else tb.innerHTML = fixedPts.map((fp,i) =>
+    '<tr data-i="'+i+'"'+(i===selIdx?' class="sel"':'')+'><td>'+(i+1)+'</td><td class="mono">'+fmt(fp.x)+'</td><td class="mono">'+fmt(fp.y)+'</td><td class="mono">'+fmtEv(fp.ev[0])+'</td><td class="mono">'+fmtEv(fp.ev[1])+'</td><td>'+chip(fp)+'</td></tr>').join('');
+  const nh = fixedPts.length > 50;
+  $('fpnote').hidden = !nh;
+  if(nh) $('fpnote').textContent = 'Hay muchísimos puntos fijos: probablemente una curva entera de equilibrios. Se muestran los primeros encontrados.';
+}
+function updateLinear(){
+  const fp = fixedPts[selIdx], info = $('lininfo');
+  drawLinear(fp);
+  if(!fp){ $('linchip').innerHTML = ''; info.innerHTML = '<p class="hint">Elegí un punto fijo en la tabla o haciendo clic sobre él en el plano.</p>'+jacSymHTML(); return; }
+  $('linchip').innerHTML = chip(fp);
+  const [a,b,c,d] = fp.J;
+  const term = (k,v,first) => { if(Math.abs(k)<1e-12) return ''; const s = k<0?'−':(first?'':'+'); return (first? (k<0?'−':'') : ' '+s+' ')+fmt(Math.abs(k))+'·'+v; };
+  const rhs = (k1,k2) => { const s = term(k1,'u',true)+term(k2,'v',!term(k1,'u',true)); return s || '0'; };
+  let note = '';
+  if(fp.stab==='nonhyp') note = '<p class="note">Punto no hiperbólico: la linealización no alcanza para decidir el tipo en el sistema no lineal (no aplica Hartman–Grobman). Mirá el flujo real o los términos de orden superior.</p>';
+  else if(fp.stab==='saddle') note = '<p class="note" style="border-color:var(--saddle)">Silla: las separatrices salen tangentes a v₁ (inestable) y entran tangentes a v₂ (estable).</p>';
+  info.innerHTML =
+    '<div class="mat-row"><span>J(x*, y*) =</span><span class="mat"><span>'+fmt(a)+'</span><span>'+fmt(b)+'</span><span>'+fmt(c)+'</span><span>'+fmt(d)+'</span></span></div>'+
+    '<dl class="kv">'+
+      '<dt>(x*, y*)</dt><dd>('+fmt(fp.x,6)+', '+fmt(fp.y,6)+')</dd>'+
+      '<dt>u̇</dt><dd>'+rhs(a,b)+'</dd>'+
+      '<dt>v̇</dt><dd>'+rhs(c,d)+'</dd>'+
+      '<dt></dt><dd class="muted" style="font-family:var(--font-ui)">con u = x − x*, v = y − y*</dd>'+
+      '<dt>τ = tr J</dt><dd>'+fmt(fp.tr)+'</dd>'+
+      '<dt>Δ = det J</dt><dd>'+fmt(fp.det)+'</dd>'+
+      '<dt>τ² − 4Δ</dt><dd>'+fmt(fp.disc)+'</dd>'+
+      '<dt>λ₁</dt><dd>'+fmtEv(fp.ev[0])+(fp.vec?'   v₁ = '+fmtVec(fp.vec[0]):'')+'</dd>'+
+      '<dt>λ₂</dt><dd>'+fmtEv(fp.ev[1])+(fp.vec?'   v₂ = '+fmtVec(fp.vec[1]):'')+'</dd>'+
+    '</dl>'+note+jacSymHTML();
+}
+function jacSymHTML(){
+  if(!sys) return '';
+  if(!sys.Jsym) return '<p class="hint">Jacobiano calculado numéricamente (diferencias centradas).</p>';
+  const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return '<div class="mat-row"><span>J(x, y) =</span><span class="mat"><span>'+sys.Jsym.map(e).join('</span><span>')+'</span></span></div>';
+}
+function drawLinear(fp){
+  const cv = $('lincv'), w = Math.min(cv.parentElement.clientWidth, 250), {ctx} = setupCanvas(cv, w);
+  cv.style.width = w+'px';
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,w,w);
+  const v = {xmin:-1,xmax:1,ymin:-1,ymax:1}, T = mkT(w,w,v);
+  drawGrid(ctx,T,v,['u','v'],false);
+  if(!fp) return;
+  const [a,b,c,d] = fp.J;
+  drawStreamlines(ctx,T,(u,vv)=>[a*u+b*vv, c*u+d*vv],C.field,13,1);
+  if(fp.vec){
+    ctx.lineWidth = 2;
+    fp.vec.forEach((vv,i) => {
+      if(!vv) return;
+      ctx.strokeStyle = fp.ev[i].re > 0 ? C.unstable : fp.ev[i].re < 0 ? C.stable : C.nonhyp;
+      ctx.beginPath(); ctx.moveTo(T.X(-2*vv[0]),T.Y(-2*vv[1])); ctx.lineTo(T.X(2*vv[0]),T.Y(2*vv[1])); ctx.stroke();
+    });
+  }
+  drawMarker(ctx,T.X(0),T.Y(0),fp.stab,5.5);
+}
+
+/* ---------- Diagrama de bifurcación ---------- */
+let bif = null, bifKey = '', bifTimer = null, cycleJob = 0;
+function bifSignature(){
+  const name = $('bifParam').value;
+  return JSON.stringify([$('fx').value,$('fy').value,params.filter(q=>q.name!==name).map(q=>q.value),view,name,$('bifMin').value,$('bifMax').value,$('bifVar').value,$('bifCycles').checked]);
+}
+function scheduleBif(force){
+  const has = params.length > 0 && !!sys;
+  $('bifEmpty').hidden = has; $('bifBody').hidden = !has; $('bifWrap').hidden = !has; $('bifLegend').hidden = !has; $('bifEvents').hidden = !has;
+  if(!has){ bif = null; bifKey = ''; $('bifStatus').textContent = ''; return; }
+  const key = bifSignature();
+  if(!force && key === bifKey && bif){ drawBif(); return; }
+  clearTimeout(bifTimer);
+  $('bifStatus').textContent = 'Calculando…';
+  bifTimer = setTimeout(() => { bifKey = key; computeBif(); }, 160);
+}
+function computeBif(){
+  const name = $('bifParam').value, pi = params.findIndex(q=>q.name===name);
+  if(pi < 0 || !sys) return;
+  const lo = +$('bifMin').value, hi = +$('bifMax').value;
+  if(!(hi > lo)){ $('bifStatus').textContent = 'El rango del parámetro tiene que cumplir desde < hasta.'; return; }
+  const ci = $('bifVar').value === 'y' ? 1 : 0, N = 260, base = pvals(), v = {...view};
+  const pts = [], evs = [];
+  let prev = null, pprev = 0;
+  const step = (hi-lo)/N;
+  for(let k=0;k<=N;k++){
+    const pval = lo + (hi-lo)*(k+0.381966)/(N+1), pv = base.slice(); pv[pi] = pval;
+    const raw = findFP(pv, v, prev ? prev.map(q=>[q.x,q.y]) : null, 9);
+    const cur = raw.map(([x,y]) => ({x,y,p:pval,c:classify(sys.J(x,y,pv))}));
+    for(const q of cur) pts.push(q);
+    if(prev) detectEvents(prev,cur,pprev,pval,evs,v);
+    prev = cur; pprev = pval;
+  }
+  bif = {lo,hi,ci,pi,name,pts,groups:groupEvents(evs,step),cycles:[],view:v};
+  drawBif(); listEvents();
+  $('bifStatus').textContent = '';
+  cycleJob++;
+  if($('bifCycles').checked) startCycles();
+}
+const sgnT = (v,eps) => Math.abs(v) <= eps ? 0 : Math.sign(v);
+function detectEvents(prev,cur,p0,p1,evs,v){
+  const sx = v.xmax-v.xmin, sy = v.ymax-v.ymin, tol = 0.05*Math.max(sx,sy);
+  const nearEdge = q => q.x < v.xmin+0.03*sx || q.x > v.xmax-0.03*sx || q.y < v.ymin+0.03*sy || q.y > v.ymax-0.03*sy;
+  const pairs = [];
+  prev.forEach((a,i) => cur.forEach((b,j) => { const d = Math.hypot(a.x-b.x,a.y-b.y); if(d<tol) pairs.push([d,i,j]); }));
+  pairs.sort((A,B)=>A[0]-B[0]);
+  const ui = new Set(), uj = new Set(), pm = (p0+p1)/2;
+  for(const [,i,j] of pairs){
+    if(ui.has(i) || uj.has(j)) continue; ui.add(i); uj.add(j);
+    const a = prev[i], b = cur[j];
+    const sc = 1e-9*(1+Math.abs(b.c.tr)+Math.abs(b.c.det));
+    const trA = a.trS !== undefined ? a.trS : sgnT(a.c.tr,sc), detA = a.detS !== undefined ? a.detS : sgnT(a.c.det,sc);
+    const trB = sgnT(b.c.tr,sc), detB = sgnT(b.c.det,sc);
+    b.trS = trB || trA; b.detS = detB || detA;
+    if(detA > 0 && b.c.det > 0 && trA && trB && trA !== trB) evs.push({p:pm,kind:'hopf',x:b.x,y:b.y});
+    else if(detA && detB && detA !== detB) evs.push({p:pm,kind:'det0',x:b.x,y:b.y});
+  }
+  prev.forEach((a,i) => { if(!ui.has(i) && !nearEdge(a)) evs.push({p:pm,kind:'fold',dir:-1,x:a.x,y:a.y}); });
+  cur.forEach((b,j) => { if(!uj.has(j) && !nearEdge(b)) evs.push({p:pm,kind:'fold',dir:1,x:b.x,y:b.y}); });
+}
+function groupEvents(evs,step){
+  evs.sort((a,b)=>a.p-b.p);
+  const gs = [];
+  for(const e of evs){
+    const last = gs[gs.length-1];
+    if(last && e.p - last.pmax <= 6*step){ last.items.push(e); last.pmax = e.p; }
+    else gs.push({items:[e],pmax:e.p});
+  }
+  return gs.map(g => {
+    // nacimientos y muertes que se compensan son puntos que Newton perdió un instante, no una bifurcación
+    const net = g.items.reduce((s,i)=>s+(i.dir||0),0);
+    g.hadFold = g.items.some(i=>i.kind==='fold');
+    if(net === 0) g.items = g.items.filter(i=>i.kind!=='fold');
+    if(!g.items.length) return null;
+    const kinds = new Set(g.items.map(i=>i.kind)), p = g.items.reduce((s,i)=>s+i.p,0)/g.items.length;
+    const nDet = g.items.filter(i=>i.kind==='det0').length;
+    const it = g.items[0];
+    let label, desc;
+    if(kinds.has('hopf')){ label = 'Hopf'; desc = 'un par de autovalores complejos cruza el eje imaginario (τ = 0 con Δ > 0): nace o muere un ciclo límite'; }
+    else if(kinds.has('fold') && kinds.has('det0')){ label = 'Horquilla'; desc = 'un punto fijo cambia de estabilidad mientras nacen o mueren otros dos a su lado'; }
+    else if(kinds.has('fold')){ label = 'Silla-nodo'; desc = 'dos puntos fijos chocan y desaparecen (o nacen de la nada)'; }
+    else if(nDet >= 2 || net === 0 && g.hadFold){ label = 'Transcrítica'; desc = 'dos ramas de puntos fijos se cruzan e intercambian estabilidad'; }
+    else { label = 'Estacionaria (Δ = 0)'; desc = 'un autovalor real pasa por cero'; }
+    return {p,label,desc,x:it.x,y:it.y};
+  }).filter(Boolean);
+}
+function listEvents(){
+  const ul = $('bifEvents');
+  if(!bif) { ul.innerHTML = ''; return; }
+  if(!bif.groups.length){ ul.innerHTML = '<li class="muted">No se detectaron bifurcaciones de puntos fijos en este rango y en esta ventana.</li>'; return; }
+  const dp = Math.max(0, Math.ceil(-Math.log10((bif.hi-bif.lo)/260))+1);
+  ul.innerHTML = bif.groups.map(g =>
+    '<li><span class="chip c-acc">'+g.label+'</span><span class="mono">'+bif.name+' ≈ '+g.p.toFixed(dp).replace('-','−')+'</span><span class="mono muted">en ('+fmt(g.x,3)+', '+fmt(g.y,3)+')</span><span class="muted">'+g.desc+'</span></li>').join('') +
+    '<li class="hint">Detección numérica sobre la grilla del parámetro: el valor es aproximado y la clasificación es la más probable.</li>';
+}
+let bifT = null;
+function drawBif(){
+  const cv = $('bif'); if(!bif || cv.parentElement.hidden) return;
+  const w = cv.parentElement.clientWidth, {ctx,h} = setupCanvas(cv, Math.round(Math.max(260, Math.min(w*0.42, 440))));
+  ctx.fillStyle = C.bg; ctx.fillRect(0,0,w,h);
+  const v = bif.view, cmin = bif.ci ? v.ymin : v.xmin, cmax = bif.ci ? v.ymax : v.xmax;
+  const ml = 50, mr = 12, mt = 12, mb = 30, pw = w-ml-mr, ph = h-mt-mb;
+  const P = p => ml+(p-bif.lo)/(bif.hi-bif.lo)*pw, Y = c => mt+ph-(c-cmin)/(cmax-cmin)*ph;
+  bifT = {P,Y,ml,mr,mt,mb,pw,ph,inv:X=>bif.lo+(X-ml)/pw*(bif.hi-bif.lo)};
+  const sp = niceStep(bif.hi-bif.lo, Math.max(3,pw/90)), sc = niceStep(cmax-cmin, Math.max(3,ph/55));
+  ctx.lineWidth = 1; ctx.strokeStyle = C.grid; ctx.beginPath();
+  for(let k=Math.ceil(bif.lo/sp); k*sp<=bif.hi+1e-12; k++){ const X = Math.round(P(k*sp))+0.5; ctx.moveTo(X,mt); ctx.lineTo(X,mt+ph); }
+  for(let k=Math.ceil(cmin/sc); k*sc<=cmax+1e-12; k++){ const yy = Math.round(Y(k*sc))+0.5; ctx.moveTo(ml,yy); ctx.lineTo(ml+pw,yy); }
+  ctx.stroke();
+  ctx.strokeStyle = C.axis; ctx.strokeRect(ml+0.5,mt+0.5,pw,ph);
+  ctx.fillStyle = C.muted; ctx.font = '11px '+C.mono; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for(let k=Math.ceil(bif.lo/sp); k*sp<=bif.hi+1e-12; k++) ctx.fillText(tickLabel(k*sp,sp), P(k*sp), mt+ph+5);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for(let k=Math.ceil(cmin/sc); k*sc<=cmax+1e-12; k++) ctx.fillText(tickLabel(k*sc,sc), ml-6, Y(k*sc));
+  ctx.fillStyle = C.ink; ctx.font = 'italic 13px '+C.mono;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(bif.name, ml+pw, h-1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(bif.ci ? 'y*' : 'x*', ml+6, mt+4);
+  ctx.save(); ctx.beginPath(); ctx.rect(ml,mt,pw,ph); ctx.clip();
+  // bifurcaciones detectadas
+  ctx.setLineDash([3,4]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1;
+  for(const g of bif.groups){ const X = Math.round(P(g.p))+0.5; ctx.beginPath(); ctx.moveTo(X,mt); ctx.lineTo(X,mt+ph); ctx.stroke(); }
+  ctx.setLineDash([]);
+  // ciclos límite
+  ctx.strokeStyle = C.traj; ctx.lineWidth = 1.3;
+  for(const cy of bif.cycles){ for(const c of [cy.min,cy.max]){ ctx.beginPath(); ctx.rect(P(cy.p)-2,Y(c)-2,4,4); ctx.stroke(); } }
+  // ramas de puntos fijos
+  for(const q of bif.pts){
+    const X = P(q.p), yy = Y(bif.ci ? q.y : q.x), s = q.c.stab;
+    if(s==='stable'){ ctx.fillStyle = C.stable; ctx.beginPath(); ctx.arc(X,yy,2.3,0,7); ctx.fill(); }
+    else if(s==='unstable'){ ctx.strokeStyle = C.unstable; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(X,yy,1.9,0,7); ctx.stroke(); }
+    else if(s==='saddle'){ ctx.fillStyle = C.saddle; ctx.beginPath(); ctx.arc(X,yy,1.6,0,7); ctx.fill(); }
+    else { ctx.fillStyle = C.nonhyp; ctx.fillRect(X-2,yy-2,4,4); }
+  }
+  // valor actual del parámetro
+  const cur = params[bif.pi] ? params[bif.pi].value : null;
+  if(cur !== null && cur >= bif.lo && cur <= bif.hi){
+    const X = Math.round(P(cur))+0.5;
+    ctx.strokeStyle = C.accent; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(X,mt); ctx.lineTo(X,mt+ph); ctx.stroke();
+    ctx.fillStyle = C.accent; ctx.font = '600 11px '+C.mono; ctx.textBaseline = 'top';
+    const lbl = bif.name+' = '+fmt(cur); const tw = ctx.measureText(lbl).width;
+    ctx.textAlign = X+tw+8 > ml+pw ? 'right' : 'left'; ctx.fillText(lbl, ctx.textAlign==='right' ? X-5 : X+5, mt+4);
+  }
+  ctx.restore();
+  let lg = '<span>'+glyph('stable')+'Estable</span><span>'+glyph('unstable')+'Inestable</span><span>'+glyph('saddle')+'Silla</span><span>'+glyph('nonhyp')+'No hiperbólico</span>';
+  if($('bifCycles').checked) lg += '<span><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="4" y="4" width="6" height="6" style="fill:none;stroke:var(--traj);stroke-width:1.5"/></svg>Ciclo límite estable (máx/mín)</span>';
+  lg += '<span>'+lineGlyph('var(--muted)',true)+'Bifurcación detectada</span><span>'+lineGlyph('var(--accent)')+'Valor actual (clic para cambiarlo)</span>';
+  $('bifLegend').innerHTML = lg;
+}
+function simAttractor(ic,pv,v,ci){
+  const f = sys.f, g = sys.g, span = Math.max(v.xmax-v.xmin,v.ymax-v.ymin), box = bigBox(v,1.5), maxLen = 0.01*span;
+  let x = ic[0], y = ic[1], t = 0, n = 0, mn = Infinity, mx = -Infinity, mo = Infinity, Mo = -Infinity;
+  const Ttr = 120, Tend = 170;
+  while(t < Tend && n < 60000){
+    const u = f(x,y,pv), w = g(x,y,pv), sp = Math.hypot(u,w);
+    if(!isFinite(sp)) return null;
+    if(sp < 1e-10) return null;
+    const dt = Math.min(0.03, maxLen/sp);
+    const k2u = f(x+dt/2*u,y+dt/2*w,pv), k2v = g(x+dt/2*u,y+dt/2*w,pv);
+    const k3u = f(x+dt/2*k2u,y+dt/2*k2v,pv), k3v = g(x+dt/2*k2u,y+dt/2*k2v,pv);
+    const k4u = f(x+dt*k3u,y+dt*k3v,pv), k4v = g(x+dt*k3u,y+dt*k3v,pv);
+    x += dt/6*(u+2*k2u+2*k3u+k4u); y += dt/6*(w+2*k2v+2*k3v+k4v); t += dt; n++;
+    if(!(x>box.xmin && x<box.xmax && y>box.ymin && y<box.ymax)) return null;
+    if(t > Ttr){ const c = ci ? y : x, o = ci ? x : y; if(c<mn) mn = c; if(c>mx) mx = c; if(o<mo) mo = o; if(o>Mo) Mo = o; }
+  }
+  if(t < Tend*0.9) return null;
+  if(Math.max(mx-mn, Mo-mo) < 4e-3*span) return null;
+  return {min:mn,max:mx};
+}
+function startCycles(){
+  const job = cycleJob, b = bif, M = 90, base = pvals(), v = b.view;
+  const ics = [[0.31,0.27],[0.73,0.61],[0.18,0.84],[0.86,0.12],[0.55,0.47]].map(([a,c])=>[v.xmin+a*(v.xmax-v.xmin), v.ymin+c*(v.ymax-v.ymin)]);
+  const span = Math.max(v.xmax-v.xmin,v.ymax-v.ymin);
+  let k = 0;
+  const chunk = () => {
+    if(job !== cycleJob || b !== bif) return;
+    const t0 = performance.now();
+    while(k <= M && performance.now()-t0 < 25){
+      const pval = b.lo+(b.hi-b.lo)*k/M, pv = base.slice(); pv[b.pi] = pval;
+      for(const ic of ics){
+        const r = simAttractor(ic,pv,v,b.ci);
+        if(r && !b.cycles.some(c => c.p===pval && Math.abs(c.max-r.max)<0.02*span && Math.abs(c.min-r.min)<0.02*span)) b.cycles.push({p:pval,...r});
+      }
+      k++;
+    }
+    $('bifStatus').textContent = k <= M ? 'Simulando ciclos límite… '+Math.round(100*k/(M+1))+'%' : '';
+    drawBif();
+    if(k <= M) setTimeout(chunk,0);
+  };
+  chunk();
+}
+
+/* ---------- UI de parámetros ---------- */
+function buildParamsUI(){
+  const box = $('params'); box.innerHTML = '';
+  $('noparams').hidden = params.length > 0;
+  params.forEach((p,i) => {
+    const row = document.createElement('div'); row.className = 'prow';
+    row.innerHTML =
+      '<div class="prow-top"><span class="pname"></span><input type="range" id="ps_'+i+'" step="any" aria-label="valor"><input type="number" id="pv_'+i+'" step="any" aria-label="valor exacto"></div>'+
+      '<div class="prow-range"><label>mín <input type="number" id="pmin_'+i+'" step="any"></label><label>máx <input type="number" id="pmax_'+i+'" step="any"></label></div>';
+    row.querySelector('.pname').textContent = p.name;
+    box.appendChild(row);
+    const sl = $('ps_'+i), nv = $('pv_'+i), mn = $('pmin_'+i), mx = $('pmax_'+i);
+    sl.min = p.min; sl.max = p.max; sl.value = p.value; nv.value = p.value; mn.value = p.min; mx.value = p.max;
+    sl.addEventListener('input', () => { p.value = +sl.value; nv.value = +(+sl.value).toPrecision(5); requestRender(); });
+    nv.addEventListener('change', () => { const x = +nv.value; if(!isFinite(x)) return; setParamValue(i,x); requestRender(); });
+    const rng = () => {
+      const a = +mn.value, b = +mx.value; if(!(b > a)) return;
+      p.min = a; p.max = b; sl.min = a; sl.max = b;
+      if($('bifParam').value === p.name){ $('bifMin').value = a; $('bifMax').value = b; }
+      setParamValue(i, Math.min(b, Math.max(a, p.value))); requestRender();
+    };
+    mn.addEventListener('change', rng); mx.addEventListener('change', rng);
+  });
+  const sel = $('bifParam'), old = sel.value;
+  sel.innerHTML = params.map(p => '<option></option>').join('');
+  [...sel.options].forEach((o,i) => { o.value = params[i].name; o.textContent = params[i].name; });
+  if(params.some(p => p.name === old)) sel.value = old;
+  else if(params.length){ sel.value = params[0].name; $('bifMin').value = params[0].min; $('bifMax').value = params[0].max; }
+}
+function setParamValue(i,x){
+  const p = params[i]; p.value = x;
+  if(x < p.min){ p.min = x; $('pmin_'+i).value = x; $('ps_'+i).min = x; }
+  if(x > p.max){ p.max = x; $('pmax_'+i).value = x; $('ps_'+i).max = x; }
+  $('ps_'+i).value = x; $('pv_'+i).value = +x.toPrecision(5);
+}
+
+/* ---------- Render y eventos ---------- */
+let rq = false;
+function requestRender(){ if(rq) return; rq = true; requestAnimationFrame(() => { rq = false; render(); }); }
+function render(){
+  readColors();
+  const p = pvals();
+  if(sys) computeFixedPoints(p); else fixedPts = [];
+  drawPhase(p); buildLegend(); updateFPTable(); updateLinear();
+  scheduleBif(false);
+  saveState();
+}
+function recompile(){
+  try{
+    const changed = compile();
+    $('err').hidden = true;
+    if(changed) buildParamsUI();
+    $('noparams').hidden = params.length > 0;
+    render();
+  }catch(e){
+    $('err').textContent = e.message; $('err').hidden = false;
+  }
+}
+function syncViewInputs(){
+  for(const k of ['xmin','xmax','ymin','ymax']) $(k).value = +view[k].toPrecision(6);
+}
+function loadPreset(i){
+  const pr = PRESETS[i];
+  $('fx').value = pr.fx; $('fy').value = pr.fy;
+  params = []; for(const q of pr.params) paramMem[q.name] = {...q};
+  view = {xmin:pr.view[0],xmax:pr.view[1],ymin:pr.view[2],ymax:pr.view[3]}; homeView = {...view};
+  trajs = (pr.traj || []).map(t => t.slice()); selPos = null; fixedPts = [];
+  syncViewInputs();
+  $('bifCycles').checked = !!pr.cycles;
+  try{ compile(); $('err').hidden = true; }catch(e){ $('err').textContent = e.message; $('err').hidden = false; }
+  buildParamsUI();
+  const bp = pr.bif && params.find(q=>q.name===pr.bif) ? pr.bif : (params[0] && params[0].name);
+  if(bp){ $('bifParam').value = bp; const q = params.find(z=>z.name===bp); $('bifMin').value = q.min; $('bifMax').value = q.max; }
+  $('bifVar').value = 'x';
+  render();
+}
+const STORE = 'plano-de-fases-v1';
+let saveTimer = null;
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{ localStorage.setItem(STORE, JSON.stringify({fx:$('fx').value, fy:$('fy').value, params, view, homeView, trajs, preset:$('preset').value})); }catch(e){}
+  }, 400);
+}
+function restore(){
+  try{
+    const s = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(!s || !s.fx) return false;
+    $('fx').value = s.fx; $('fy').value = s.fy;
+    for(const q of s.params || []) paramMem[q.name] = q;
+    view = s.view; homeView = s.homeView || {...s.view}; trajs = s.trajs || [];
+    $('preset').value = s.preset || '';
+    syncViewInputs();
+    compile(); buildParamsUI(); render();
+    return true;
+  }catch(e){ return false; }
+}
+
+function init(){
+  readColors();
+  const ps = $('preset');
+  ps.innerHTML = '<option value="">Ejemplos…</option>' + PRESETS.map((p,i) => '<option value="'+i+'"></option>').join('');
+  PRESETS.forEach((p,i) => { ps.options[i+1].textContent = p.name; });
+  ps.addEventListener('change', () => { if(ps.value !== '') loadPreset(+ps.value); });
+
+  let et = null;
+  for(const id of ['fx','fy']) $(id).addEventListener('input', () => { $('preset').value = ''; clearTimeout(et); et = setTimeout(recompile, 300); });
+
+  for(const k of ['xmin','xmax','ymin','ymax']) $(k).addEventListener('change', () => {
+    const nv = {...view, [k]: +$(k).value};
+    if(nv.xmax > nv.xmin && nv.ymax > nv.ymin && Object.values(nv).every(isFinite)){ view = nv; render(); } else syncViewInputs();
+  });
+  $('resetView').addEventListener('click', () => { view = {...homeView}; syncViewInputs(); render(); });
+  for(const id of ['fieldMode','tNcx','tNcy','tFp','tEig','tSep','tBack','tmax']) $(id).addEventListener('change', render);
+  $('clearTraj').addEventListener('click', () => { trajs = []; render(); });
+
+  const cv = $('phase');
+  let drag = null;
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); drag = {x:e.offsetX, y:e.offsetY, v:{...view}, moved:false}; });
+  cv.addEventListener('pointermove', e => {
+    const T = phaseT; if(!T) return;
+    const x = T.ix(e.offsetX), y = T.iy(e.offsetY);
+    if(sys){ const p = pvals(); $('readout').textContent = 'x = '+fmt(x)+'   y = '+fmt(y)+'   ẋ = '+fmt(sys.f(x,y,p))+'   ẏ = '+fmt(sys.g(x,y,p)); }
+    if(!drag) return;
+    const dx = e.offsetX-drag.x, dy = e.offsetY-drag.y;
+    if(!drag.moved && Math.hypot(dx,dy) > 4) drag.moved = true;
+    if(drag.moved){
+      const wx = dx/T.kx, wy = dy/T.ky;
+      view = {xmin:drag.v.xmin-wx, xmax:drag.v.xmax-wx, ymin:drag.v.ymin+wy, ymax:drag.v.ymax+wy};
+      syncViewInputs(); requestRender();
+    }
+  });
+  cv.addEventListener('pointerup', e => {
+    if(drag && !drag.moved && phaseT){
+      const T = phaseT;
+      let hit = -1, best = 10;
+      fixedPts.forEach((fp,i) => { const d = Math.hypot(T.X(fp.x)-e.offsetX, T.Y(fp.y)-e.offsetY); if(d < best){ best = d; hit = i; } });
+      if(hit >= 0 && $('tFp').checked){ selPos = [fixedPts[hit].x, fixedPts[hit].y]; }
+      else trajs.push([T.ix(e.offsetX), T.iy(e.offsetY)]);
+      render();
+    }
+    drag = null;
+  });
+  cv.addEventListener('pointercancel', () => { drag = null; });
+  cv.addEventListener('wheel', e => {
+    e.preventDefault(); const T = phaseT; if(!T) return;
+    const wx = T.ix(e.offsetX), wy = T.iy(e.offsetY);
+    const f = Math.exp(Math.sign(e.deltaY)*Math.min(Math.abs(e.deltaY),120)*0.0018);
+    view = {xmin:wx+(view.xmin-wx)*f, xmax:wx+(view.xmax-wx)*f, ymin:wy+(view.ymin-wy)*f, ymax:wy+(view.ymax-wy)*f};
+    syncViewInputs(); requestRender();
+  }, {passive:false});
+
+  $('fpbody').addEventListener('click', e => {
+    const tr = e.target.closest('tr[data-i]'); if(!tr) return;
+    const fp = fixedPts[+tr.dataset.i]; selPos = [fp.x, fp.y]; render();
+  });
+
+  $('bifParam').addEventListener('change', () => { const q = params.find(z=>z.name===$('bifParam').value); if(q){ $('bifMin').value = q.min; $('bifMax').value = q.max; } scheduleBif(true); });
+  for(const id of ['bifMin','bifMax','bifVar','bifCycles']) $(id).addEventListener('change', () => scheduleBif(true));
+  $('bifRun').addEventListener('click', () => scheduleBif(true));
+  const bc = $('bif');
+  bc.addEventListener('click', e => {
+    if(!bif || !bifT) return;
+    const pval = bifT.inv(e.offsetX); if(pval < bif.lo || pval > bif.hi) return;
+    const i = params.findIndex(q=>q.name===bif.name); if(i < 0) return;
+    setParamValue(i, +pval.toPrecision(4)); render();
+  });
+
+  let lastW = 0;
+  new ResizeObserver(() => { const w = document.querySelector('.main').clientWidth; if(w !== lastW){ lastW = w; render(); } }).observe(document.querySelector('.main'));
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const retheme = () => { render(); drawBif(); };
+  if(mq.addEventListener) mq.addEventListener('change', retheme);
+  new MutationObserver(retheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+  if(!restore()){ ps.value = '0'; loadPreset(0); }
+}
+if(window.math) init();
+else { document.getElementById('err').textContent = 'No se pudo cargar math.js; revisá la conexión y recargá la página.'; document.getElementById('err').hidden = false; }
+</script>
+</body>
+</html>
