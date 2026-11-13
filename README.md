@@ -7,7 +7,9 @@ Graficador interactivo de sistemas dinámicos autónomos en 2D:
 ẏ = g(x, y; parámetros)
 ```
 
-Es una sola página web (`index.html`): se abre en el navegador y no hay que instalar nada.
+**Usalo online:** https://matiasasa-hub.github.io/plano-de-fases/
+
+Es una sola página web (`index.html`): también se puede descargar y abrir en el navegador, sin instalar nada.
 
 ## Qué hace
 
